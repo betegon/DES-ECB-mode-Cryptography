@@ -7,7 +7,8 @@ Order of appearance follows the order of their usage in DES
 * Variable naming according to PEP(Python Enhancement Proposals):
   Variable names should be lowercase, with words separated by underscores as necessary to improve readability.
 
-* All matrices are Zero Indexed, starting at 0. This way is easy to understand it by mapping positions.
+* All matrices are Zero Indexed, by this I mean the real DES matrices are these ones + 1 (every element). 
+  This way is easy to understand it by mapping positions.
 
             pc1 = Permuted Choice 1
     left_shifts = number of left shifts in each iteration
