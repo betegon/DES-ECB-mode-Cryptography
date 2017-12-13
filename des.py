@@ -66,3 +66,4 @@ print("text unppaded: " + textunppaded)
 # TODO-me offer the option of getting key, data an so by terminal (maybe comment one of the options, by prompt or by code))
 # TODO-me if use prompt key input it is necessary to change function check_key_length(key) so if key is wrong, have the chance to change it.
 # TODO-me key should be input as hex? check it out.
+# TODO-me add compatibility with Python 3.x (most worry about string encoding in python3.x)
