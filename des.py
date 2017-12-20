@@ -3,7 +3,7 @@ key: key we will use to chyper and decipher
 text_plain: text to cipher/decipher
 """
 import matrices as m
-
+import time
 # CONSTANTS
 BLOCK_SIZE = 8  # Block size of DES = 8Bytes=64bits, sames as Key size.
 PADDING = "0"  # we will fill the plaintext with 0s  if needed
@@ -158,60 +158,68 @@ def cipher_decipher_block(block,kn,mode):
     block_ip:           block after Initial Permutation (ip)
     left:               first 32bits after applying ip matrix to the block
     right:              last 32bits after applying ip matrix to the block
+    right_change:       coppy of "right" to make L1=R0 (R0=right_change).
     right_expansion:    output of applying Expansion table to right(R)
     xor:                function for calculating xor. xor(input1,input2)
     xor_output:         output of function xor.
-
+    f:                  function "F".
+    des_iteration:      stores the value of first iteration (0 if cipher, 15 if decipher)
+    des_adder:          used to add or subtract from des_iteration.(add if cipher, subtract if decipher)
     """
     if mode == "cipher":
-        cont = 0
-
+        des_iteration = 0
+        des_adder = 1
     elif mode =="decipher":
-        cont = 15
-
+        des_iteration = 15
+        des_adder = -1
     else:
         raise ValueError("given DES mode is wrong. modes: cipher or decipher")
 
 
     print "Mode selected is",mode
+    print "In progress..."
+    time.sleep(2)
 
     # apply initial permutation to input text
     block_ip = matrix_apply(block,m.ip)
     left = block_ip[:32]
     right = block_ip[32:]
+    right_change = right  # later, L1=R0, so we have this to make that change
+    i = 0
+    while i < 16: #16 iterations, for cipher and decipher
 
-    ## CALCULATE cipher function "f".
-    # 1. right expansion
-    # 2. XOR of #1. and k[i]
-    # 3. Selection (S-Boxes) to compress #2.
-    # 4. Permutation (P) matrix
+        ## CALCULATE cipher function "f".
+        # 1. right expansion
+         # 2. XOR of #1. and k[i]
+        # 3. Selection (S-Boxes) to compress #2.
+        # 4. Permutation (P) matrix
 
-    # 1. apply Expansion table to R
-    right_expansion = matrix_apply(right,m.expansion_table)
+        # 1. apply Expansion table to R
+        right_expansion = matrix_apply(right,m.expansion_table)
 
     # 2. XOR of right_expansion and kn[i]
-    for i in range(1):
-
         xor_output = [0]*len(right_expansion)
-        xor_output = xor(right_expansion,kn[i])
+        xor_output = xor(right_expansion,kn[des_iteration])
 
         # 3. apply S-Boxes for compression of #2.
         sbox_input = [xor_output[:6], xor_output[6:12], xor_output[12:18],xor_output[18:24], xor_output[24:30], xor_output[30:36], xor_output[36:42], xor_output[42:]]
 
         sbox_output = [0] * 32
         position = 0
-        for j in range(len(sbox_input)):
+        for k in range(len(sbox_input)):
             # get the index of the row
-            sbox_row = (sbox_input[j][0] << 1) + sbox_input[j][5] # this is to change from binary to decimal: e.g. a<<1 =2^a (bin:...84210)
-                                           #now we have a number between 0 and 3 which is the index of the "S-box row".
-            #same as above, a<<3 = a*2^3, a<<2 = a*2^2 + a<<1 = a*2^1 and a = a || this stands for the hex value bits(1-4) of xor_output.
-            sbox_column = (sbox_input[j][1] << 3) + (sbox_input[j][2] << 2) + (sbox_input[j][3] << 1) + sbox_input[j][4]
-            print "SBOX -",j
+            sbox_row = (sbox_input[k][0] << 1) + sbox_input[k][5]  # this is to change from binary to decimal: e.g.
+            # a<<1 =2^a (bin:...84210) now we have a number between 0 and 3 which is the index of the "S-box row".
+
+            # same as above, a<<3 = a*2^3, a<<2 = a*2^2 + a<<1 = a*2^1 and a = a || this stands for the hex value
+            # bits(1-4) of xor_output.
+            sbox_column = (sbox_input[k][1] << 3) + (sbox_input[k][2] << 2) + (sbox_input[k][3] << 1) + sbox_input[k][4]
+            print "SBOX #",k
             print "row:   ",sbox_row
             print "column:",sbox_column
-            # use the sbox matrix to compress. access to the element with <<4, so if sbox_row = 0, this is 0, if it is 1, then it is 16 (second row),
-            # if it is 2, then it is 32 (third row)
-            v =m.sbox[j][(sbox_row << 4) + sbox_column]
+            # use the sbox matrix to compress. access to the element with <<4, so if sbox_row = 0, this is 0,
+            # if it is 1, then it is 16 (second row), if it is 2, then it is 32 (third row)
+            v =m.sbox[k][(sbox_row << 4) + sbox_column]
             print "Sbox:  ",v
             print "\n"
 
@@ -227,27 +235,17 @@ def cipher_decipher_block(block,kn,mode):
             position += 4
 
         # 4. Apply permutation matrix P
+        f = matrix_apply(sbox_output,m.p)
+        right = xor(f,left)
+        left = right_change
+        i = i + 1
+        des_iteration = des_iteration + des_adder
 
+    # final operation:  Inverse initial Permutation (IP^-1)
+    # right + left: this is to get ready for decipher after or cipher (DES Standard FIGURE 1: Enciphering computation)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    des_output = matrix_apply(right+left,m.inv_ip)
+    return des_output
 
 
 
