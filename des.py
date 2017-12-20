@@ -5,24 +5,36 @@ text_plain: text to cipher/decipher
 import matrices as m
 import time
 # CONSTANTS
-BLOCK_SIZE = 8  # Block size of DES = 8Bytes=64bits, sames as Key size.
+BLOCK_SIZE = 16  # Block size of DES 16hex = 8Bytes=64bits, sames as Key size.
 PADDING = "0"  # we will fill the plaintext with 0s  if needed
 
+def hex2bin(chain):
+    result = []
+    result_string = ''.join((bin(int(chain[i:i+2], 16))[2:].zfill(8) for i in range(0, len(chain), 2)))
+    result.extend([int(b) for b in result_string])
+    return result
+    
+def bin2hex(bit_array):
+    results = map(str, bit_array)
+    bit_string = ''.join(results)
+    x =len(bit_string)/4
+    y = "%0" +str(x)+"x"
+    hex_string = y % int(bit_string, 2)
+    return hex_string
 
 # check key length
 def check_key_length(key):
     if len(key) != BLOCK_SIZE:
         raise ValueError("DES Key size not valid, it should be 8 Bytes long.\n")
     else:
-        print("Input Key is valid.")
-
+        print("Input Key is valid.\n")
 
 # check input is not empty:
 def check_input(data):
     if not data:
         raise ValueError("Input cannot be empty.")
     else:
-        print("Input data is valid.\n")
+        print("Input data is valid.")
 
 
 # String (ASCII) to bits
@@ -149,7 +161,47 @@ def key_expansion(key_binary):
 # Cipher/Decipher Related Operations
 # *********************************************************************************
 
-#TODO-me this is only for 1 block, need to add something to separate the plaintext in blocks and later concatenate them.
+# Split data in blocks and call cipher_decipher_block
+def ciphering_deciphering_data(data,key,mode):
+    # cipher_decipher_block(block,kn,mode):
+    check_input(data)
+    check_key_length(key)
+    binary_key = hex2bin(key)
+    kn = key_expansion(binary_key)
+    
+    if mode == "cipher":
+        data = add_padding(data)
+        bits = hex2bin(data)
+    else:
+        bits = hex2bin(data)
+    
+    print "Mode selected is",mode,"\n"
+    data_output = [] # this will be all data cipher/decipher in string.
+    i = 0
+    progress_block = 1
+    
+    while i < (len(bits)): #/2 because it is in hex, 2hex=1B
+        block = bits[i:i+64]  # +64 because it is in bits 64bits = 8Bytes = 8 characters = 1block
+        print "In progress Block #", progress_block
+        time.sleep(1)
+        block_output = cipher_decipher_block(block,kn,mode)
+        #print "mi blok",block_output
+        block_output_string = bin2hex(block_output)
+        
+        #data_output = data_output + block_output_string
+        data_output.append(block_output_string)
+        i = i + 64  # 64bits, 1 block in bits
+        progress_block = progress_block + 1
+    # print data_output
+    if mode == "decipher":
+        data_output = ''.join(data_output)
+        data_output = remove_padding(data_output)
+        return data_output
+    else:
+        
+        return ''.join(data_output)
+
+
 def cipher_decipher_block(block,kn,mode):
     """
     Chyper or Decypher JUST 1 BLOCK of data.
@@ -176,18 +228,15 @@ def cipher_decipher_block(block,kn,mode):
         raise ValueError("given DES mode is wrong. modes: cipher or decipher")
 
 
-    print "Mode selected is",mode
-    print "In progress..."
-    time.sleep(2)
-
     # apply initial permutation to input text
     block_ip = matrix_apply(block,m.ip)
     left = block_ip[:32]
     right = block_ip[32:]
-    right_change = right  # later, L1=R0, so we have this to make that change
+    # right_change = right  # later, L1=R0, so we have this to make that change
     i = 0
     while i < 16: #16 iterations, for cipher and decipher
-
+        right_change = right  # later, L1=R0, so we have this to make that change
+  
         ## CALCULATE cipher function "f".
         # 1. right expansion
          # 2. XOR of #1. and k[i]
@@ -196,14 +245,15 @@ def cipher_decipher_block(block,kn,mode):
 
         # 1. apply Expansion table to R
         right_expansion = matrix_apply(right,m.expansion_table)
-
+        #print "EXPANSIOOON", right_expansion
     # 2. XOR of right_expansion and kn[i]
         xor_output = [0]*len(right_expansion)
         xor_output = xor(right_expansion,kn[des_iteration])
-
+        #print "xor_output", xor_output
         # 3. apply S-Boxes for compression of #2.
         sbox_input = [xor_output[:6], xor_output[6:12], xor_output[12:18],xor_output[18:24], xor_output[24:30], xor_output[30:36], xor_output[36:42], xor_output[42:]]
-
+        #print "sbox_input",sbox_input
+        
         sbox_output = [0] * 32
         position = 0
         for k in range(len(sbox_input)):
@@ -214,14 +264,15 @@ def cipher_decipher_block(block,kn,mode):
             # same as above, a<<3 = a*2^3, a<<2 = a*2^2 + a<<1 = a*2^1 and a = a || this stands for the hex value
             # bits(1-4) of xor_output.
             sbox_column = (sbox_input[k][1] << 3) + (sbox_input[k][2] << 2) + (sbox_input[k][3] << 1) + sbox_input[k][4]
-            print "SBOX #",k
-            print "row:   ",sbox_row
-            print "column:",sbox_column
+           
             # use the sbox matrix to compress. access to the element with <<4, so if sbox_row = 0, this is 0,
             # if it is 1, then it is 16 (second row), if it is 2, then it is 32 (third row)
             v =m.sbox[k][(sbox_row << 4) + sbox_column]
-            print "Sbox:  ",v
-            print "\n"
+            # print "SBOX #",k
+            # print "row:   ",sbox_row
+            # print "column:",sbox_column
+            # print "Sbox:  ",v
+            # print "\n"
 
             # from decimal to bits the same way as above. a>>3 is divide a by 2**3
             sbox_output[position] = (v & 8) >> 3
@@ -233,17 +284,18 @@ def cipher_decipher_block(block,kn,mode):
             sbox_output[position + 3] = v & 1
             # print sbox_output[position+3]
             position += 4
-
+            #print "SBOX_OUTPUT",sbox_output
         # 4. Apply permutation matrix P
         f = matrix_apply(sbox_output,m.p)
-        right = xor(f,left)
+        right = xor(f, left)
+        # print "XOOOOOR F:",i,bin2hex(right)
         left = right_change
         i = i + 1
         des_iteration = des_iteration + des_adder
-
+    
     # final operation:  Inverse initial Permutation (IP^-1)
     # right + left: this is to get ready for decipher after or cipher (DES Standard FIGURE 1: Enciphering computation)
-
+      
     des_output = matrix_apply(right+left,m.inv_ip)
     return des_output
 
@@ -252,29 +304,63 @@ def cipher_decipher_block(block,kn,mode):
 
 
 
-key = "01234567"  # NOT hex, normal string(ascii for python2.x).
-text_plain = "holahol"
+data = "0123456789abcdef0123456789abcdef"
+key = "0123456789abcdef"
 
-# test all functions
-check_key_length(key)
-check_input(text_plain)
-text_padded = add_padding(text_plain)
-bits = string_to_bits(text_padded)
-string = bits_to_string(bits)
-text_unpadded = remove_padding(text_padded)
-binary_key = string_to_bits(key)  # for key_expansion
-kn = key_expansion(binary_key)
-print text_plain
-print text_padded
-print bits
-# print string
-print text_unpadded
-########################################################
+# cipher all data
+ciphered = ciphering_deciphering_data(data,key,"cipher")
+print  "\n","Ciphered Data:",ciphered,"\n"
+
+#decipher all data
+deciphered = ciphering_deciphering_data(ciphered,key,"decipher")
+print "deciphered Data:",deciphered
 
 
-check_key_length(key)
-check_input(text_plain)
-binary_key = string_to_bits(key)
+#cipher first block
+data_bin = hex2bin(data)
+key_bin = hex2bin(key)
+kn = key_expansion(key_bin)
+ciphered_block = bin2hex(cipher_decipher_block(data_bin,kn,"cipher"))
+print "\n","ciphered block:",ciphered_block
+
+#decipher first block
+bin_ciphered_block = hex2bin(ciphered_block)
+deciphered_block = cipher_decipher_block(bin_ciphered_block,kn,"decipher")
+print "deciphered block:",bin2hex(deciphered_block)
+
+
+
+
+
+
+
+#######################################################################################################################
+# TEST ALL DES.
+# key_expansion IS WORKING
+#key_binary = hex2bin(key)
+# print "key binary:", key_binary
+#kn = key_expansion(key_binary)
+# print "kn[0]",kn[0]
+#hexkn0 = bin2hex(kn[0])
+# print "hex kn[0]",hexkn0
+
+# IP is WORKING (checked with class exercise (l0, R0 in class exercise)
+#data_bin = hex2bin(data)
+#ip= matrix_apply(data_bin,m.ip)
+# print ip
+# print bin2hex(ip)
+
+#******************
+#THINGS THAT ARE OK
+#******************
+#bin2hex
+#hex2bin
+#key_expansion (at least kn[0], we have its value from class exercise)
+#EXPANSION, XOR( I mean xor_ouput), SBOX(sbox_output I mean), l1,R1 ARE WORKING
+
+#check_key_length(key)
+#check_input(text_plain)
+#binary_key = string_to_bits(key)
 # test key_expansion with an example. (have the step by step guide of this example in my class notebook).
 # knn = key_expansion([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0,
 # 1, 1, 1, 1, 0, 0, 0, 1, 0,0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1])
@@ -283,30 +369,14 @@ binary_key = string_to_bits(key)
 
 #block = [0,0,0,0,1,1,1,1]
 #kn =    [0,1,0,1,0,1,0,1]
-y = cipher_decipher_block(bits,kn,"cipher")
+#y = cipher_decipher_block(bits,kn,"cipher")
+
+#######################################################################################################################
 
 
-a = [[0,1,1,1,0,0],[0,1,0,0,0,1],[0,1,1,1,0,0],[1,1,0,0,1,0]]
-#b = [0,0,0,0,0,0]
-#y = [0]*16
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# TODO-me put XOR in a function
 # TODO-me implement PKCS-5 in order to avoid problem with remove_padding (if text=12340, padded=>12340000, unpadded=>1234 with my actual function remove_padding). if PKCS-5 complicated to implement, just make a quick check in remove_padding: if textplain last char is the same as the set of padding be careful.
 # TODO-me optimize add_padding and remove_padding
 # TODO-me offer the option of getting key, data an so by terminal (maybe comment one of the options, by prompt or by code))
 # TODO-me if use prompt key input it is necessary to change function check_key_length(key) so if key is wrong, have the chance to change it.
-# TODO-me key should be input as hex? check it out.
+
 # TODO-me add compatibility with Python 3.x (most worry about string encoding in python3.x)
