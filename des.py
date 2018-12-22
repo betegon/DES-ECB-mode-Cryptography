@@ -239,7 +239,7 @@ def cipher_decipher_block(block,kn,mode):
   
         ## CALCULATE cipher function "f".
         # 1. right expansion
-         # 2. XOR of #1. and k[i]
+        # 2. XOR of #1. and k[i]
         # 3. Selection (S-Boxes) to compress #2.
         # 4. Permutation (P) matrix
 
